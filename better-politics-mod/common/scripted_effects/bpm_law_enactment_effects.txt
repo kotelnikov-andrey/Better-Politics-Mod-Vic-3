@@ -721,3 +721,30 @@ bpm_ig_decrease_law_enactment_approval_big = {
 		}
 	}
 }
+
+bpm_ig_gen_sways = {
+	clear_variable_list = bpm_sways
+	while = {
+		count = 5
+		owner = {
+			create_character = {
+				template = struct_template
+				save_scope_as = sway_struct
+			}
+		}
+		scope:sway_struct = {
+			set_variable = {
+				name = sway_strength
+				value = 10
+			}
+			set_variable = {
+				name = amendment
+				value = amendment_type:amendment_taikunate
+			}
+		}
+		add_to_variable_list = {
+			name = bpm_sways
+			target = scope:sway_struct
+		}
+	}	
+}

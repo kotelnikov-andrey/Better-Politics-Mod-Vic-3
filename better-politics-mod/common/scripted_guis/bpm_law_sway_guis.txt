@@ -56,7 +56,7 @@ bpm_negotiated_amendment_sway_gui = {
 		save_temporary_scope_as = ig
 		owner.currently_enacting_law = {
 			any_possible_amendment_type = {
-				amendment_banned_from_enactment = no
+				bpm_amendment_banned_from_enactment = no
 				scope:ig = { would_sponsor_amendment = prev }
 			}
 		}

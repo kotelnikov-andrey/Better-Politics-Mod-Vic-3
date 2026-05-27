@@ -138,10 +138,11 @@ bpm_ig_law_support_total_value = {
 			}
 		}
 
-		add = {
-			value = owner.bpm_law_enactment_movement_pressure
-			desc = "bpm_ig_law_support_from_movement"
-		}
+		#add = {
+		#	value = owner.bpm_law_enactment_movement_pressure
+		#	desc = "bpm_ig_law_support_from_movement"
+		#}
+
 		if = {
 			limit = {
 				owner = { has_variable = bpm_law_enactment_desired_by_revolution }
@@ -244,7 +245,7 @@ bpm_ig_law_support_total_value = {
 	
 		if = {
 			limit = {
-				ig_approval < -10
+				ig_approval < define:NPolitics|APPROVAL_THRESHOLD_ANGRY
 				NOR = { 
 					has_variable = bpm_blackmail_leader_sway_used
 					has_variable = bpm_redeem_favors_sway_used
@@ -265,7 +266,7 @@ bpm_ig_law_support_total_value = {
 		}
 		else_if = {
 			limit = {
-				ig_approval < 0
+				ig_approval < define:NPolitics|APPROVAL_THRESHOLD_UNHAPPY
 				NOR = { 
 					has_variable = bpm_blackmail_leader_sway_used
 					has_variable = bpm_redeem_favors_sway_used
@@ -286,7 +287,7 @@ bpm_ig_law_support_total_value = {
 		}
 		else_if = {
 			limit = {
-				ig_approval < 0
+				ig_approval < define:NPolitics|APPROVAL_THRESHOLD_UNHAPPY
 				owner = { AND = {
 					exists = currently_enacting_law.type
 					currently_enacting_law.type = law_type:law_repeatable_politics_motion_of_no_confidence
@@ -300,7 +301,7 @@ bpm_ig_law_support_total_value = {
 		}
 		else_if = {
 			limit = {
-				ig_approval < -10
+				ig_approval < define:NPolitics|APPROVAL_THRESHOLD_ANGRY
 				owner = { AND = {
 					exists = currently_enacting_law.type
 					currently_enacting_law.type = law_type:law_repeatable_politics_motion_of_no_confidence
@@ -441,7 +442,7 @@ bpm_ig_law_support_total_value = {
 	
 		if = {
 			limit = {
-				ig_approval < -10
+				ig_approval < define:NPolitics|APPROVAL_THRESHOLD_ANGRY
 				NOR = { 
 					has_variable = bpm_blackmail_leader_sway_used
 					has_variable = bpm_redeem_favors_sway_used
@@ -884,9 +885,74 @@ bpm_law_enactment_ruler_approval = {
 	}
 	# Insurrection: 20
 	# Movement: 10
-	add = {
-		value = owner.bpm_law_enactment_movement_pressure
-		desc = "bpm_ig_law_support_from_movement"
+	#add = {
+	#	value = owner.bpm_law_enactment_movement_pressure
+	#	desc = "bpm_ig_law_support_from_movement"
+	#}
+	scope:acting_ruler.interest_group = {
+		save_temporary_scope_as = ig_for_calc
+	if = { #positive movements
+		limit = {
+			owner = {
+				any_political_movement = {
+					supports_law = yes
+					any_influenced_interest_group = {
+						this = scope:ig_for_calc
+					}
+				}
+			}
+		}
+		add = {
+			desc = "amenability_pressuring_supporting_movements"
+			owner = {
+				every_political_movement = {
+					limit = {
+						supports_law = yes
+						any_influenced_interest_group = {
+							this = scope:ig_for_calc
+						}
+					}
+					add = {
+						value = "movement_pressure(scope:ig_for_calc)"
+						multiply = movement_balance_factor
+						max = movement_max_factor
+					}
+				}
+			}
+		}
+	}
+
+	if = { #negative movements
+		limit = {
+			owner = {
+				any_political_movement = {
+					opposes_law = yes
+					any_influenced_interest_group = {
+						this = scope:ig_for_calc
+					}
+				}
+			}
+		}
+		add = {
+			desc = "amenability_pressuring_opposing_movements"
+			owner = {
+				every_political_movement = {
+					limit = {
+						opposes_law = yes
+						any_influenced_interest_group = {
+							this = scope:ig_for_calc
+						}
+					}
+					add = {
+						value = "movement_pressure(scope:ig_for_calc)"
+						multiply = movement_balance_factor
+						max = movement_max_factor
+						multiply = -1 #take away
+					}
+				}
+			}
+		}
+	}
 	}
 	if = {
 		limit = { movement_supports_enaction = yes }
@@ -1445,5 +1511,397 @@ bpm_law_enactment_desire = {
 			}
 		}
 		multiply = 3
+	}
+}
+
+REPLACE:movement_balance_factor = 80
+REPLACE:movement_max_factor = 50
+
+REPLACE:ig_clout_neg_multiplier = 2 #Relation between clout and amenability used in multiple places
+
+REPLACE:amenability = { #runs in IG scope. owner is the county.
+	#min and max set by defines
+	save_temporary_scope_as = ig_for_calc
+	if = {
+		limit = {owner = {is_player = yes}}
+		value = {
+		add = { #legitimacy adds base value
+			desc = "amenability_base"
+			add = 50
+		}
+
+		add = { #legitimacy adds base value
+			desc = "amenability_legitimacy"
+			add = {
+				owner = {value = bpm_cab_synergy_value}
+			}
+			subtract = 40
+			multiply = 0.25
+		}
+
+		add = { #clout removes
+			desc = "amenability_clout"
+			add = ig_clout
+			multiply = 100
+			subtract = 4 #IG smaller than this actually seeks to get bigger.
+			multiply = -1
+			multiply = ig_clout_neg_multiplier
+			max = 20
+		}
+
+		add = { #approval adds (can be negative)
+			desc = "amenability_approval"
+			add = ig_approval
+		}
+
+		if = { #ruler popularity
+			limit = {
+				exists = owner.ruler
+			}
+			add = {
+				desc = "amenability_ruler_popularity"
+				add = {
+					owner = {
+						if = {
+							limit = {
+								bpm_has_gov_regency = yes
+							}
+							var:bpm_regent = {
+								value = popularity
+							}
+						}
+						else_if = {
+							limit = {
+								bpm_has_acting_hog = yes
+							}
+							var:bpm_acting_hog = {
+								value = popularity
+							}
+						}
+						else_if = {
+							limit = {
+								modifier:country_bpm_hog_veto = yes
+							}
+							var:bpm_headofgov = {
+								value = popularity
+							}
+						}
+						else = {
+							ruler = {
+								value = popularity
+							}
+						}
+					}
+				}
+				multiply = 0.05
+			}
+		}
+
+		# if = { #boost if in government. TESTING: Seems not required.
+		# 	limit = {
+		# 		is_in_government = yes
+		# 	}
+		# 	add = {
+		# 		desc = "amenability_in_gov"
+		# 		add = 0
+		# 	}
+		# }
+
+		if = { #positive movements
+			limit = {
+				owner = {
+					any_political_movement = {
+						supports_law = yes
+						any_influenced_interest_group = {
+							this = scope:ig_for_calc
+						}
+					}
+				}
+			}
+			add = {
+				desc = "amenability_pressuring_supporting_movements"
+				owner = {
+					every_political_movement = {
+						limit = {
+							supports_law = yes
+							any_influenced_interest_group = {
+								this = scope:ig_for_calc
+							}
+						}
+						add = {
+							value = "movement_pressure(scope:ig_for_calc)"
+							multiply = movement_balance_factor
+							max = movement_max_factor
+						}
+					}
+				}
+			}
+		}
+
+		if = { #negative movements
+			limit = {
+				owner = {
+					any_political_movement = {
+						opposes_law = yes
+						any_influenced_interest_group = {
+							this = scope:ig_for_calc
+						}
+					}
+				}
+			}
+			add = {
+				desc = "amenability_pressuring_opposing_movements"
+				owner = {
+					every_political_movement = {
+						limit = {
+							opposes_law = yes
+							any_influenced_interest_group = {
+								this = scope:ig_for_calc
+							}
+						}
+						add = {
+							value = "movement_pressure(scope:ig_for_calc)"
+							multiply = movement_balance_factor
+							max = movement_max_factor
+							multiply = -1 #take away
+						}
+					}
+				}
+			}
+		}
+
+		if = {
+			limit = {
+				opposes_law = yes
+				ig_approval > unhappy
+			}
+			add = {
+				desc = "amenability_neutral_and_opposing"
+				add = {
+					add = ig_clout
+					multiply = 100
+					subtract = 8 #IG smaller than this actually seeks to get bigger.
+					multiply = ig_clout_neg_multiplier
+					multiply = 0.5
+				}
+			}
+		}
+		# else_if = { #TESTING: This doesn't seem needed as approval already is hard hit.
+		# 	limit = {
+		# 		root = {
+		# 			opposes_law = yes
+		# 			ig_approval <= angry
+		# 		}
+		# 	}
+		# 	add = {
+		# 		desc = "amenability_angry_and_opposing"
+		# 		add = {
+		# 			add = ig_clout
+		# 			multiply = 100
+		# 			subtract = 8 #IG smaller than this actually seeks to get bigger.
+		# 			multiply = ig_clout_neg_multiplier
+		# 			multiply = 0.25 #there is already approval effect, softening
+		# 			multiply = -1 #negative effect
+		# 		}
+		# 	}
+		# }
+
+		else_if = { #drain if strongly oppose, as opposed to just oppose
+			limit = {
+				law_enactment_stance = {
+                    law = owner.currently_enacting_law.type
+                    value < disapprove
+                }
+			}
+			add = {
+				desc = "amenability_strongly_oppose"
+				add = -15
+			}
+		}
+
+		##modifiers on IG
+		add = {
+			value = modifier:interest_group_amenability_add
+			desc = "amenability_ig_additional_adds"
+		}
+
+		##modifiers on Nation
+		add = {
+			value = owner.modifier:country_amenability_add
+			desc = "amenability_country_additional_adds"
+		}
+
+		### Enactment chance
+		##if looking very likely will pass even without negotiating, scaled slightly based on lead. The IG are looking for a freebie, since law is gonna pass anyway.
+		if = {
+			limit = {
+				owner = {
+					var:bpm_law_enactment_yea_votes_cached > bpm_law_enactment_vote_threshold
+				}
+			}
+			add = {
+				add = 25
+				desc = "amenability_law_likely_to_pass"
+			}
+		}
+		#else_if = {
+		#	limit = {
+		#		owner.enactment_chance > {
+		#			add = owner.stall_chance
+		#			add = 0.08
+		#		}
+		#	}
+		#	add = {
+		#		add = 10
+		#		desc = "amenability_law_likely_to_pass"
+		#	}
+		#}
+		#else_if = {
+		#	limit = {
+		#		owner.enactment_chance > {
+		#			add = owner.stall_chance
+		#			add = 0.02
+		#		}
+		#	}
+		#	add = {
+		#		add = 5
+		#		desc = "amenability_law_likely_to_pass"
+		#	}
+		#}
+		##Otherwise, extra amenability if sure their support will make no difference and it will fail anyway. Two levels.
+		else_if = {
+			limit = {
+				opposes_law = yes
+				ig_clout > {
+					owner = {
+						value = bpm_law_enactment_vote_threshold
+						subtract = var:bpm_law_enactment_yea_votes_cached
+					}
+				}
+			}
+			add = {
+				add = -15
+				desc = "amenability_law_worried_to_be_tie_breaker"
+			}
+		}
+		else_if = {
+			limit = {
+				ig_clout > {
+					owner = {
+						value = bpm_law_enactment_vote_threshold
+						subtract = var:bpm_law_enactment_yea_votes_cached
+					}
+				}
+			}
+			add = {
+				add = -5
+				desc = "amenability_law_worried_to_be_tie_breaker"
+			}
+		}
+		else_if = {
+			limit = {
+				owner = {
+					bpm_law_enactment_vote_threshold > {
+						value = var:bpm_law_enactment_yea_votes_cached
+						multiply = 4
+					}
+				}
+			}
+			add = {
+				add = 20
+				desc = "amenability_law_makes_no_difference"
+			}
+		}
+		else_if = {
+			limit = {
+				owner = {
+					bpm_law_enactment_vote_threshold > {
+						value = var:bpm_law_enactment_yea_votes_cached
+						multiply = 4
+					}
+				}
+			}
+			add = {
+				add = 10
+				desc = "amenability_law_makes_no_difference"
+			}
+		}
+		else_if = {
+			limit = {
+				owner = {
+					bpm_law_enactment_vote_threshold > {
+						value = var:bpm_law_enactment_yea_votes_cached
+						multiply = 4
+					}
+				}
+			}
+			add = {
+				add = 5
+				desc = "amenability_law_makes_no_difference"
+			}
+		}
+		##Otherwise, afraid of being the tiebreaker
+		##Balance note, this is an easy way to make negotiation harder whenever it is most effective, while keeping it the same in other places. BEST LEVER HERE.
+
+		#if = { #happy IGs do not block laws, even if they support them
+		#	limit = {
+		#		opposes_law = yes
+		#		ig_approval >= happy
+		#	}
+		#	add = {
+		#		value = -500
+		#		desc = "amenability_already_letting_go"
+		#	}
+		#}
+
+		if = { # If there is more than two "steps" between the IG's stance on the currently enacting law and the currently active law, they will not negotiate
+			limit = {
+				OR = {
+					AND = {
+						law_stance = {
+							law = owner.currently_enacting_law.type
+							value = strongly_disapprove
+						}
+						law_stance = {
+							law = owner.currently_enacting_law.currently_active_law_in_group.type
+							value >= approve
+						}
+					}
+					AND = {
+						law_stance = {
+							law = owner.currently_enacting_law.type
+							value <= disapprove
+						}
+						law_stance = {
+							law = owner.currently_enacting_law.currently_active_law_in_group.type
+							value = strongly_approve
+						}
+					}
+				}
+			}
+			add = {
+				value = -500
+				desc = "amenability_too_large_gap"
+			}
+		}
+		
+	if = {
+		limit = {
+			has_variable = bpm_times_ig_swayed
+		}
+		add = {
+			value = var:bpm_times_ig_swayed
+			multiply = -20
+			desc = "amenability_times_swayed"
+		}
+	}
+
+		round = 1
+		min = define:NPolitics|MIN_AMENABILITY
+		max = define:NPolitics|MAX_AMENABILITY
+	}
+	}
+	else = {
+		value = 100
 	}
 }
