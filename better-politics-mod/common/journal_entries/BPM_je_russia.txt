@@ -282,7 +282,8 @@ je_bpm_russia_estates = {
 			limit = { has_law = law_type:law_council_republic }
 			trigger_event = { id = bpm_russia.8 popup = yes	}
 		} else_if = { # Completed via the liberal-republic shortcut with governance reforms
-			# unfinished: same cleanup as bpm_russia.8 without the council-republic popup
+			# unfinished: same rushed cleanup as bpm_russia.8, then the usual streamlined
+			# government reward once the modifiers are swept away
 			limit = {
 				OR = {
 					has_modifier = bpm_russia_ad_hoc_governance
@@ -303,6 +304,7 @@ je_bpm_russia_estates = {
 			remove_modifier = bpm_russia_obschina_abolished
 			remove_modifier = bpm_russia_zemstvos
 			remove_modifier = bpm_russia_zemstvos_abolished
+			trigger_event = { id = bpm_russia.9 popup = yes	}
 		} else = { # Normal completion
 			trigger_event = { id = bpm_russia.9 popup = yes	}
 		}
